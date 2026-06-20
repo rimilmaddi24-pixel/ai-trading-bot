@@ -1,3 +1,5 @@
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -29,9 +31,8 @@ st.set_page_config(page_title="Ultimate AI Bot", page_icon="🤖", layout="wide"
 st.title("🚀 Ultimate AI Trading Control Center")
 st.markdown("---")
 
-# Ab 4 Tabs banenge
-tab1, tab2, tab3, tab4 = st.tabs(["⚙️ Manual Setup", "📡 AI Radar", "📊 Live Portfolio", "⏳ Time Machine (Backtest)"])
-
+# Ab 5 Tabs banenge
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["⚙️ Manual Setup", "📡 AI Radar", "📊 Live Portfolio", "⏳ Time Machine", "🧠 ML Predictor"])
 # ==========================================
 # TAB 1: MANUAL SETUP & INTERACTIVE CHART
 # ==========================================
@@ -181,3 +182,78 @@ with tab4:
                 
             else:
                 st.error("⚠️ Error: Data download nahi ho paaya.")
+
+# ==========================================
+# TAB 5: TRUE MACHINE LEARNING (PREDICTIVE AI)
+# ==========================================
+with tab5:
+    st.subheader("🧠 Machine Learning Price Predictor")
+    st.markdown("Bot pichle 10 saal ke profit/loss patterns se train hoke kal ka bhavishya batayega!")
+    
+    ml_symbol = st.text_input("Stock for Prediction", "RELIANCE.NS", key="ml_sym")
+    
+    if st.button("🤖 TRAIN AI MODEL & PREDICT TOMORROW", use_container_width=True):
+        with st.spinner("Downloading 10 years of data to train the AI..."):
+            df = yf.download(tickers=ml_symbol, period="10y", interval="1d", progress=False)
+            
+            if not df.empty:
+                df = df.squeeze() # Clean multi-index
+                
+                st.info("Step 1: AI is learning past features (SMA, RSI, Price Action)...")
+                # Features banate hain (AI inko dekh kar seekhega)
+                df['SMA_10'] = df['Close'].rolling(window=10).mean()
+                df['SMA_50'] = df['Close'].rolling(window=50).mean()
+                df['Daily_Return'] = df['Close'].pct_change()
+                
+                st.info("Step 2: AI is memorizing past Profits (UP) and Losses (DOWN)...")
+                # TARGET: Agar kal ka price aaj se zyada hai, toh 1 (UP/Profit), nahi toh 0 (DOWN/Loss)
+                df['Target'] = (df['Close'].shift(-1) > df['Close']).astype(int)
+                
+                # Missing values hata do
+                df = df.dropna()
+                
+                # Train/Test Split
+                features = ['Close', 'SMA_10', 'SMA_50', 'Daily_Return']
+                X = df[features]
+                y = df['Target']
+                
+                # Pichla sara data training ke liye
+                X_train = X.iloc[:-100]
+                y_train = y.iloc[:-100]
+                # Aakhiri 100 din testing ke liye
+                X_test = X.iloc[-100:]
+                y_test = y.iloc[-100:]
+                
+                st.warning("Step 3: Training the Deep Random Forest Brain... (Wait 2 secs)")
+                # AI MODEL TRAINING (Yahan bot sach me seekh raha hai!)
+                model = RandomForestClassifier(n_estimators=100, random_state=42)
+                model.fit(X_train, y_train)
+                
+                # AI ka Test (Success Rate check karna)
+                predictions = model.predict(X_test)
+                accuracy = accuracy_score(y_test, predictions) * 100
+                
+                st.success("✅ AI Training Complete!")
+                st.markdown("---")
+                
+                # TOMORROW'S PREDICTION
+                latest_data = X.iloc[-1:] # Aaj ka data
+                tomorrow_pred = model.predict(latest_data)
+                probability = model.predict_proba(latest_data)[0]
+                
+                st.subheader(f"🔮 Prediction for Next Trading Session ({ml_symbol})")
+                
+                pred_col1, pred_col2, pred_col3 = st.columns(3)
+                pred_col1.metric("Historical AI Accuracy", f"{accuracy:.2f}%")
+                
+                if tomorrow_pred[0] == 1:
+                    pred_col2.metric("Tomorrow's Prediction", "MARKET WILL GO UP 🟢")
+                    pred_col3.metric("Confidence (Probability)", f"{probability[1]*100:.2f}%")
+                else:
+                    pred_col2.metric("Tomorrow's Prediction", "MARKET WILL GO DOWN 🔴")
+                    pred_col3.metric("Confidence (Probability)", f"{probability[0]*100:.2f}%")
+                    
+                st.caption("Disclaimer: ML predictions are based on historical probabilities and are not guaranteed financial advice.")
+                
+            else:
+                st.error("Market data fetch nahi ho paaya.")
