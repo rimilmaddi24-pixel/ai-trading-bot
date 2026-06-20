@@ -19,7 +19,19 @@ def save_trade(symbol, action, price, quantity):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     c.execute("INSERT INTO trades VALUES (?, ?, ?, ?, ?)", (now, symbol, action, price, quantity))
     conn.commit()
+# Yeh code Tab 1 me st.button("🔥 FIRE BUY ORDER") ke if block ke andar jayega:
 
+                save_trade(symbol, "BUY", current_price, quantity)
+                
+                # NAYA ALERTS CODE YAHAN AAYEGA
+                alert_subject = f"🚨 TRADE ALERT: BUY {symbol}"
+                alert_body = f"Ultimate AI Bot update:\n\nOrder Type: BUY\nStock: {symbol}\nQuantity: {quantity}\nExecuted Price: Rs {current_price:.2f}\n\nHappy Trading!"
+                
+                with st.spinner("Sending Email Alert..."):
+                    if send_email_alert(alert_subject, alert_body):
+                        st.success(f"✅ BUY Order Fired for {symbol} at ₹{current_price:.2f} & Alert Sent!")
+                    else:
+                        st.warning("Order Fired, but Email Alert failed.")
 # Page UI Config
 st.set_page_config(page_title="Ultimate AI Bot", page_icon="🤖", layout="wide")
 st.title("🚀 Ultimate AI Trading Control Center")
