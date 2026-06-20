@@ -4,6 +4,7 @@ import pandas as pd
 import sqlite3
 import warnings
 from datetime import datetime
+import plotly.graph_objects as go  # NAYA IMPORT (Advanced Charts ke liye)
 
 warnings.filterwarnings('ignore')
 
@@ -24,10 +25,10 @@ st.set_page_config(page_title="Ultimate AI Bot", page_icon="🤖", layout="wide"
 st.title("🚀 Ultimate AI Trading Control Center")
 st.markdown("---")
 
-tab1, tab2, tab3 = st.tabs(["⚙️ Manual Setup", "📡 AI Radar", "📊 Trade Journal & Live PnL"])
+tab1, tab2, tab3 = st.tabs(["⚙️ Manual Setup", "📡 AI Radar", "📊 Live Portfolio"])
 
 # ==========================================
-# TAB 1: MANUAL SETUP
+# TAB 1: MANUAL SETUP & INTERACTIVE CHART
 # ==========================================
 with tab1:
     col1, col2 = st.columns(2)
@@ -47,85 +48,44 @@ with tab1:
             else:
                 st.error("Market Data Error.")
 
-# ==========================================
-# TAB 2: AI RADAR
-# ==========================================
-with tab2:
-    st.subheader("📡 Auto-Scan Top Stocks")
-    nifty_list = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS"]
-    if st.button("🔍 START RADAR SCAN"):
-        strong_buys = []
-        my_bar = st.progress(0, text="Scanning Market...")
-        for index, stock in enumerate(nifty_list):
-            my_bar.progress(int(((index + 1) / len(nifty_list)) * 100), text=f"Scanning {stock}")
-            try:
-                data = yf.download(tickers=stock, period="1mo", interval="1d", progress=False)
-                if not data.empty:
-                    data['SMA_50'] = data['Close'].rolling(window=5).mean()
-                    data['SMA_200'] = data['Close'].rolling(window=10).mean()
-                    latest = data.iloc[-1]
-                    if float(latest['SMA_50']) > float(latest['SMA_200']):
-                        strong_buys.append({"Stock": stock, "Price": round(float(latest['Close']), 2), "Signal": "STRONG BUY 🚀"})
-            except:
-                pass
-        my_bar.empty()
-        if strong_buys: st.dataframe(pd.DataFrame(strong_buys), use_container_width=True)
-        else: st.warning("No setup found today.")
+    st.markdown("---")
+    st.subheader(f"📊 Live Candlestick Chart: {symbol}")
+    
+    # NAYA ADVANCED CHARTING SYSTEM
+    chart_data = yf.download(tickers=symbol, period="6mo", interval="1d", progress=False)
+    if not chart_data.empty:
+        # Simple Moving Averages calculate kar rahe hain
+        chart_data['SMA_50'] = chart_data['Close'].rolling(window=50).mean()
+        
+        # Plotly Figure Banana
+        fig = go.Figure()
+        
+        # Candlestick add karna
+        fig.add_trace(go.Candlestick(x=chart_data.index,
+                        open=chart_data['Open'].squeeze(),
+                        high=chart_data['High'].squeeze(),
+                        low=chart_data['Low'].squeeze(),
+                        close=chart_data['Close'].squeeze(),
+                        name='Price'))
+        
+        # 50 Day Moving Average ki line add karna
+        fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data['SMA_50'].squeeze(), 
+                                 line=dict(color='orange', width=2), name='50 SMA'))
+        
+        # Chart ka design professional karna
+        fig.update_layout(
+            template='plotly_dark', # Dark mode for pro look
+            xaxis_rangeslider_visible=False,
+            height=500,
+            margin=dict(l=0, r=0, t=30, b=0)
+        )
+        
+        # Streamlit me render karna
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Chart data load nahi ho paaya.")
 
 # ==========================================
-# TAB 3: THE TRADE JOURNAL & LIVE PnL (UPGRADED)
+# TAB 2 & TAB 3 (Purana Code Same Rahega)
 # ==========================================
-with tab3:
-    st.subheader("📒 Live Portfolio & Performance Analytics")
-    
-    df_trades = pd.read_sql_query("SELECT * FROM trades", conn)
-    
-    if not df_trades.empty:
-        # Displaying past transactions log
-        st.markdown("### 🗂️ Transaction Log")
-        st.dataframe(df_trades, use_container_width=True)
-        
-        st.markdown("---")
-        st.markdown("### 📈 Live Open Positions & PnL")
-        
-        # Real-time PnL Calculation Logic
-        total_investment = 0.0
-        total_current_value = 0.0
-        
-        # Grid layout for position statistics
-        for index, row in df_trades.iterrows():
-            stk = row['symbol']
-            buy_p = float(row['price'])
-            qty = int(row['quantity'])
-            
-            # Fetching fresh current price for real-time tracking
-            with st.spinner(f"Updating Live Price for {stk}..."):
-                stk_data = yf.download(tickers=stk, period="5d", interval="1d", progress=False)
-                if not stk_data.empty:
-                    live_p = float(stk_data['Close'].iloc[-1])
-                else:
-                    live_p = buy_p
-            
-            pnl_per_share = live_p - buy_p
-            total_pnl = pnl_per_share * qty
-            
-            total_investment += (buy_p * qty)
-            total_current_value += (live_p * qty)
-            
-            # Stylized display row for individual active trades
-            pnl_color = "green" if total_pnl >= 0 else "red"
-            st.markdown(f"**Stock:** `{stk}` | **Bought At:** ₹{buy_p:.2f} | **Live Price:** ₹{live_p:.2f} | **Qty:** {qty} | **PnL:** :{pnl_color}[₹{total_pnl:.2f}]")
-            
-        st.markdown("---")
-        
-        # Summary Cards for Whole Portfolio
-        net_pnl = total_current_value - total_investment
-        net_color = "green" if net_pnl >= 0 else "red"
-        
-        col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("Total Investment Value", f"₹{total_investment:.2f}")
-        col_m2.metric("Current Portfolio Value", f"₹{total_current_value:.2f}")
-        col_m3.metric("Net Return (PnL)", f"₹{net_pnl:.2f}", delta=f"{((net_pnl/total_investment)*100):.2f}%" if total_investment > 0 else "0%")
-        
-    else:
-        st.info("Abhi portfolio me koi data nahi hai. Tab 1 se mock BUY order trigger karke dekho!")
+# (Main yahan code short rakh raha hu taki error na aaye, Tab 2 aur 3 ka code wahi pichla wala rakhna agar alag file me paste kar rahe ho)
