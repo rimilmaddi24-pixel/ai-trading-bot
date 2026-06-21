@@ -1,0 +1,26 @@
+name: Ghost Mode Auto-Trader
+
+on:
+  schedule:
+    # Yeh script Monday se Friday (1-5), UTC time 9:45 par chalegi (Jo India mein 3:15 PM hota hai)
+    - cron: '45 9 * * 1-5'
+  workflow_dispatch: # Isse tum kabhi bhi manual button duba kar test kar sakte ho
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Required Libraries
+        run: |
+          pip install yfinance pandas scikit-learn
+
+      - name: Wake up AI Bot
+        run: python auto_bot.py
